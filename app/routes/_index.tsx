@@ -26,6 +26,8 @@ const getFromLocalStorage = (key) => {
 export default function Index() {
   const fieldRef = useRef<HTMLDivElement | null>(null)
   const [parents, setParents] = useState( {});
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [selectedPosition, setSelectedPosition] = useState(null);
 
   useEffect(() => {
     const parents = getFromLocalStorage('parents');
@@ -89,38 +91,86 @@ export default function Index() {
     {"name": "Max Alegria"}
 ]
 
-  const draggables = players.map((player) => (
-    {
-    "name": player.name, 
-    "component":(<Draggable key={player.name} id={player.name}>  
-                  <PlayerCard name={player.name} imageUrl={player.imageUrl}/>
-                </Draggable>),
-    }
-  ));
+  const draggables = players.map((player) => {
+    const isDropped = Object.values(parents).find(parent => player.name === parent) != undefined;
+    return (
+      {
+        "name": player.name,
+        "component": (
+          isDropped ?
+          (<Draggable key={player.name} id={player.name}>
+            <PlayerCard name={player.name} imageUrl={player.imageUrl}/>
+          </Draggable>
+          ) :
+          (
+          <PlayerListTile key={player.name} name={player.name} imageUrl={player.imageUrl} handleTap={() => handleSelectedPlayerTap(player.name)} isAdding={selectedPosition != null} />
+          )
+        ),
+      }
+    );
+  });
 
 
 
 
   return (
-    <div className="flex flex-col items-center justify-center p-20 gap-16">
+    <div className="flex flex-col items-center justify-center p-20 gap-16 cursor-default" role="button" onClick={dismissSelection} aria-hidden="true">
        <h1 className="leading text-2xl font-bold text-gray-800 dark:text-gray-100 text-center">
           Create and share your favorite lineup for Vasco da Gama.
         </h1>
-      <div className="flex flex-col items-center gap-16">
         <DndContext onDragEnd={handleDragEnd}>
-          <div className="flex flex-wrap items-center justify-center space-x-2 space-y-2">
-            {draggables.filter((draggable) => Object.values(parents).find(parent => draggable.name === parent) == undefined).map((draggable) => (draggable.component))}
-          </div>
-          <div ref={fieldRef} className="h-[600px] w-[400px] relative bg-cover bg-center mx-auto bg-[url('/football_field.svg')]">
-          {positions.map((position) => (
-            <PlayerPosition  key={position.name} id={position.name} name={position.name} top={position.top} left={position.left} player={getPlayer(position)}/>
-          ))}
+          <div className="flex flex-row items-center gap-16">
+            <div className="overflow-y-auto overflow-x-hidden h-[600px] bg-white dark:bg-slate-800 dark:highlight-white/5 shadow-lg ring-1 ring-black/5 flex flex-col divide-y dark:divide-slate-200/5">
+              {draggables.filter((draggable) => Object.values(parents).find(parent => draggable.name === parent) == undefined).map((draggable) => (draggable.component))}
+            </div>
+            <div ref={fieldRef} className="h-[600px] w-[400px] relative bg-cover bg-center mx-auto bg-[url('/football_field.svg')]">
+            {positions.map((position) => (
+              <PlayerPosition key={position.name} id={position.name} name={position.name} top={position.top} left={position.left} player={getPlayer(position)} isAdding={selectedPlayer != null} handleTap={() => handleSelectedPosition(position.name)}/>
+            ))}
+            </div>
           </div>
         </DndContext>
         <button onClick={handleDownload} className="bg-blue-500 text-white font-bold py-2 px-4 rounded">Download Image</button>
-      </div>
     </div>
   );
+
+  function handleSelectedPlayerTap(player) {
+    setSelectedPlayer(player)
+
+    if(selectedPosition != null) {
+      var updatedParents = {...parents}
+      updatedParents[selectedPosition] = player
+
+      saveToLocalStorage('parents', updatedParents);
+      setParents(updatedParents);
+      setSelectedPlayer(null)
+      setSelectedPosition(null)
+    }
+  }
+
+  function handleSelectedPosition(position) {
+    setSelectedPosition(position)
+
+    if(selectedPlayer != null) {
+      var updatedParents = {...parents}
+      updatedParents[position] = selectedPlayer
+
+      console.log(updatedParents)
+
+      saveToLocalStorage('parents', updatedParents);
+      setParents(updatedParents);
+      setSelectedPlayer(null)
+      setSelectedPosition(null)
+    }
+  }
+
+  function dismissSelection(event) {
+    if (event.target === event.currentTarget) {
+      setSelectedPlayer(null)
+      setSelectedPosition(null)
+    }
+    
+  }
 
   function handleDownload() {
     if (fieldRef.current) {
@@ -169,6 +219,8 @@ export default function Index() {
 
     saveToLocalStorage('parents', updatedParents);
     setParents(updatedParents);
+    setSelectedPlayer(null)
+    setSelectedPosition(null)
   }
 }
 
@@ -184,28 +236,9 @@ function Droppable(props) {
   
   
   return (
-    <div>
-      <button id={"button" + props.id} ref={setNodeRef} data-dropdown-toggle={"dropdown-" + props.id} style={style}>
+      <div ref={setNodeRef} style={style}>
         {props.children}
-      </button>
-    
-      <div id={"dropdown-" + props.id} className="z-10 hidden bg-white divide-y divide-gray-100 rounded-lg shadow w-44 dark:bg-gray-700">
-      <ul className="py-2 text-sm text-gray-700 dark:text-gray-200" aria-labelledby="dropdownDefaultButton">
-        <li>
-          <a href="#" className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">Dashboard</a>
-        </li>
-        <li>
-          <a href="#" className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">Settings</a>
-        </li>
-        <li>
-          <a href="#" className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">Earnings</a>
-        </li>
-        <li>
-          <a href="#" className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">Sign out</a>
-        </li>
-      </ul>
       </div>
-    </div>
   );
 }
 
@@ -226,7 +259,7 @@ function Draggable(props) {
   );
 }
 
-function PlayerPosition({id, name, top, left, player }) {
+function PlayerPosition({id, name, top, left, player, isAdding, handleTap }) {
   return (
     <div
       className="absolute flex flex-col items-center text-black font-bold"
@@ -235,20 +268,32 @@ function PlayerPosition({id, name, top, left, player }) {
       <Droppable id={id}>
         {player != null ? 
           player :
-          <>
-            <div className="bg-red-500 w-8 h-8 rounded-full flex items-center justify-center"/>
-            <div className="text-xs mt-1 text-center">{name}</div>
-          </>}
+          <div onClick={handleTap} aria-hidden="true" role="button">
+            <div className="bg-black w-10 h-10 rounded-full border-2 border-white flex items-center justify-center text-red-500 text-xs">
+              {isAdding ? "+" : name}
+            </div>
+          </div>}
       </Droppable>
     </div>
   );
 }
 
 function PlayerCard({name, imageUrl}) {
-  const className = `rounded-md border-2 border-solid border-black w-20 h-20 ${imageUrl ? `bg-[url('${imageUrl}')] bg-cover` : "bg-white"}`
+  const className = `rounded-full border-2 border-solid border-white w-[60px] h-[60px] text-xs mt-1 text-center bg-[url("${imageUrl ?? "/payet.jpg"}")] bg-black bg-cover`
   return (
-    <div className={className}>
-     {imageUrl ? null : <div className="text-xs mt-1 text-center">{name}</div>}
-    </div>
+    <div className={className}/>
+  )
+}
+
+function PlayerListTile({name, imageUrl, handleTap, isAdding}) {
+  return (
+    <button onClick={handleTap}>
+      <div className="flex items-center gap-4 p-4 border-2 border-black">
+        <div className={`rounded-full bg-red h-10 w-10 bg-[url("${imageUrl ?? "/payet.jpg"}")] bg-cover`} />
+        <div>{name}</div>
+        {isAdding ? <div className="bg-green-500 rounded-full h-10 w-10 text-xl text-white text-center flex justify-center items-center">+</div> : null}
+        
+      </div>
+    </button>
   )
 }
